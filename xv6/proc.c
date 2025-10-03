@@ -532,3 +532,18 @@ procdump(void)
     cprintf("\n");
   }
 }
+int
+kgetprocs(void)
+{
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state != UNUSED){
+      // states: UNUSED=0, EMBRYO=1, SLEEPING=2, RUNNABLE=3, RUNNING=4, ZOMBIE=5
+      cprintf("pid=%d state=%d name=%s\n", p->pid, p->state, p->name);
+    }
+  }
+  release(&ptable.lock);
+  return 0;
+}
