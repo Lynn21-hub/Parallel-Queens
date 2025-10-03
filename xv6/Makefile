@@ -172,6 +172,7 @@ UPROGS=\
 	_grep\
 	_init\
 	_kill\
+	_login\
 	_ln\
 	_ls\
 	_mkdir\

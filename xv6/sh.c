@@ -3,6 +3,7 @@
 #include "types.h"
 #include "user.h"
 #include "fcntl.h"
+#include "fs.h"
 
 // Parsed command representation
 #define EXEC  1
@@ -53,6 +54,59 @@ int fork1(void);  // Fork but panics on failure.
 void panic(char*);
 struct cmd *parsecmd(char*);
 
+
+//function to check if a string contains * 
+static int has_star(const char *s){
+  for(;*s;s++) if (*s=='*') return 1;
+  return 0;
+}
+//matcher function 
+static int match(const char *pat,const char *s){
+  if( *pat ==0) return *s==0;
+  if(*pat =='*')
+    return match(pat+1,s) || (*s && match(pat,s+1));
+  return *pat== *s && match(pat+1,s+1);
+}
+//add one argv entry 
+static void addarg(char **argv,int *argc , char *s,int max){
+  if(*argc +1 < max)
+    argv[(*argc)++]=s;
+}
+static int expand_glob(char *pat, char **nargv, int *nargc, int maxargs){
+  int fd = open(".", 0);
+  if(fd < 0)
+    return 0;
+
+  struct dirent de;
+  int matches = 0;
+
+  // If pattern doesn’t start with '.', skip hidden files.
+  int showdot = (pat[0] == '.');
+
+  while(read(fd, &de, sizeof(de)) == sizeof(de)){
+    if(de.inum == 0) continue;
+
+    // copy name into a C-string
+    char name[DIRSIZ+1];
+    memmove(name, de.name, DIRSIZ);
+    name[DIRSIZ] = 0;
+
+    if(!showdot && name[0] == '.') continue;
+
+    if(match(pat, name)){
+      char *dup = malloc(strlen(name)+1);
+      if(!dup) break;
+      strcpy(dup, name);
+      addarg(nargv, nargc, dup, maxargs);
+      matches++;
+    }
+  }
+
+  close(fd);
+  return matches;
+}
+
+
 // Execute cmd.  Never returns.
 void
 runcmd(struct cmd *cmd)
@@ -71,14 +125,48 @@ runcmd(struct cmd *cmd)
   default:
     panic("runcmd");
 
-  case EXEC:
-    ecmd = (struct execcmd*)cmd;
-    if(ecmd->argv[0] == 0)
-      exit();
-    exec(ecmd->argv[0], ecmd->argv);
-    printf(2, "exec %s failed\n", ecmd->argv[0]);
-    break;
+  case EXEC: {
+  struct execcmd *ecmd = (struct execcmd*)cmd;
+  if(ecmd->argv[0] == 0)
+    exit();
 
+  // Build a new argv with wildcard expansion.
+  // MAXARGS is defined in sh.c; keep using it.
+  char *nargv[MAXARGS];
+  int nargc = 0;
+
+  for(int i = 0; ecmd->argv[i] && nargc+1 < MAXARGS; i++){
+    char *arg = ecmd->argv[i];
+
+    if(has_star(arg)){
+      // try expanding; if no matches, keep the literal
+      int before = nargc;
+      int got = expand_glob(arg, nargv, &nargc, MAXARGS);
+      if(got == 0){
+        // keep literal
+        char *dup = malloc(strlen(arg)+1);
+        if(dup){
+          strcpy(dup, arg);
+          addarg(nargv, &nargc, dup, MAXARGS);
+        }
+      }
+    } else {
+      // keep as-is
+      char *dup = malloc(strlen(arg)+1);
+      if(dup){
+        strcpy(dup, arg);
+        addarg(nargv, &nargc, dup, MAXARGS);
+      }
+    }
+  }
+  nargv[nargc] = 0;
+
+  // exec the expanded argv
+  exec(nargv[0], nargv);
+  printf(2, "exec %s failed\n", nargv[0]);
+  break;
+  }
+  
   case REDIR:
     rcmd = (struct redircmd*)cmd;
     close(rcmd->fd);
