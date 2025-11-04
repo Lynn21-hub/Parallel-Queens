@@ -4,6 +4,12 @@
 #include "user.h"
 #include "fcntl.h"
 #include "fs.h"
+// ---- Command history support ----
+#define MAX_HISTORY 20
+#define MAX_CMD_LEN 100
+
+char history[MAX_HISTORY][MAX_CMD_LEN];
+int hist_count = 0;
 
 // Parsed command representation
 #define EXEC  1
@@ -243,19 +249,36 @@ main(void)
     }
   }
 
-  // Read and run input commands.
+    // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
+
+    // --- save command into history ---
+    if(strlen(buf) > 1) {
+      strcpy(history[hist_count % MAX_HISTORY], buf);
+      hist_count++;
+    }
+
+    // --- built-in cd ---
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
-      // Chdir must be called by the parent, not the child.
       buf[strlen(buf)-1] = 0;  // chop \n
       if(chdir(buf+3) < 0)
         printf(2, "cannot cd %s\n", buf+3);
       continue;
     }
+
+    // --- built-in history ---
+   if(buf[0] == 'h' && buf[1] == 'i' && buf[2] == 's' && buf[3] == 't' && buf[4] == 'o' && buf[5] == 'r' && buf[6] == 'y'){
+      int start = hist_count > MAX_HISTORY ? hist_count - MAX_HISTORY : 0;
+      for(int i = start; i < hist_count; i++)
+        printf(1, "%d %s", i + 1, history[i % MAX_HISTORY]);
+      continue;
+    }
+
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait();
   }
+
   exit();
 }
 
