@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "ticketlock.h"
 
 struct {
   struct spinlock lock;
@@ -547,3 +548,133 @@ kgetprocs(void)
   release(&ptable.lock);
   return 0;
 }
+static int
+others_share_pgdir(pde_t *pgdir, struct proc *skip)
+{
+  struct proc *p;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p == skip) continue;
+    if(p->state != UNUSED && p->pgdir == pgdir)
+      return 1;
+  }
+  return 0;
+}
+int clone(void(*fcn)(void*),void *arg,void *stack){
+  int i;
+  struct proc *np;
+  struct proc *curproc = myproc();
+  if((uint) stack % PGSIZE !=0) // perform page allignment check
+    return -1;
+  if((curproc->sz-(uint)stack )< PGSIZE)
+    return -1;
+  if((np = allocproc()) == 0){
+    return -1;
+  }
+
+  
+  np->pgdir=curproc->pgdir;
+  np->sz = curproc->sz;
+  np->parent = curproc;
+  *np->tf = *curproc->tf;
+  uint user_stack[2];
+  user_stack[0] = 0xffffffff;
+  user_stack[1] = (uint) arg;
+  // set top of the stack to the allocated page
+  // (stack is actually the bottom of the page)
+  uint stack_top = (uint) stack + PGSIZE;
+  // subtract 8 bytes from the stack top to
+  // make space for the two values being saved
+  stack_top -= 8;
+  // copy user stack values to np's memory
+  if (copyout(np->pgdir, stack_top, user_stack, 8) < 0) {
+	  return -1;
+  }
+
+  // set stack base and stack pointers for return-from-trap
+  // they will be the same value because we are returning into a function
+  np->tf->ebp = (uint) stack_top;
+  np->tf->esp = (uint) stack_top;
+  // set instruction pointer to address of function
+  np->tf->eip = (uint) fcn;
+
+  // Clear %eax so that fork returns 0 in the child.
+  np->tf->eax = 0;
+
+  for(i = 0; i < NOFILE; i++)
+    if(curproc->ofile[i])
+      np->ofile[i] = filedup(curproc->ofile[i]);
+  np->cwd = idup(curproc->cwd);
+
+  safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+
+  acquire(&ptable.lock);
+
+  np->state = RUNNABLE;
+
+  release(&ptable.lock);
+
+  return np->pid;
+}
+
+int join(void){
+  struct proc *p;
+  int havethreads, pid;
+  struct proc *curproc = myproc();
+  
+  acquire(&ptable.lock);
+  for(;;){
+    // Scan through table looking for exited children.
+    havethreads = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->pgdir!=curproc->pgdir || p->parent != curproc)
+        continue;
+      havethreads = 1;
+      if(p->state == ZOMBIE){
+        // Found one.
+        pid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->state = UNUSED;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havethreads || curproc->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(curproc, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+int holding_t(struct ticketlock *lk){ //helper function to determine if ticketlock is held by process 
+  struct proc *p=myproc();
+  return (lk->proc ==p) && (lk->turn != lk->ticket);
+}
+void initlock_t(struct ticketlock *lk){
+  lk->ticket=0;
+  lk->turn=0;
+  lk->proc=0;
+}
+void acquire_t(struct ticketlock *lk){
+  if(holding_t(lk)){
+    panic("lock already acquired !");
+  }uint myticket= fetch_and_add(&lk->ticket,1);
+  while(lk->turn != myticket);
+  lk->proc =myproc();
+}
+void release_t(struct ticketlock *lk){
+  if(!holding_t(lk)){
+    panic("lock not held !");
+  }
+  lk->proc=0;
+  lk->turn ++;
+}
+  

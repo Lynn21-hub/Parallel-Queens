@@ -30,3 +30,10 @@ SYSCALL(sbrk)
 SYSCALL(sleep)
 SYSCALL(uptime)
 SYSCALL(getprocs)
+SYSCALL(clone)
+SYSCALL(join)
+SYSCALL(initlock_t)
+SYSCALL(acquire_t)
+SYSCALL(release_t)
+
+

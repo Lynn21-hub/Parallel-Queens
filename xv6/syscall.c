@@ -104,6 +104,11 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_getprocs(void);
+extern int sys_clone(void);
+extern int sys_join(void);
+extern int sys_initlock_t(void);
+extern int sys_acquire_t(void);
+extern int sys_release_t(void);
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
@@ -127,6 +132,11 @@ static int (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_getprocs]  sys_getprocs,
+[SYS_clone]     sys_clone,
+[SYS_join] sys_join,
+[SYS_initlock_t] sys_initlock_t,
+[SYS_acquire_t] sys_acquire_t,
+[SYS_release_t] sys_release_t,
 };
 
 void
