@@ -185,7 +185,9 @@ UPROGS=\
 	_getprocs\
 	_tree\
 	_diff\
-
+	_search \
+    _find \
+    _split
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
 
