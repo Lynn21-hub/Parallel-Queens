@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
+#include "ticketlock.h"
 
 int
 sys_fork(void)
@@ -94,3 +95,46 @@ sys_getprocs(void)
 {
   return kgetprocs();
 }
+int 
+sys_clone(void){
+  void (*fcn)(void*);
+  void *arg;
+  void *stack;
+
+  if(argptr(0, (void*)&fcn, sizeof(fcn)) < 0) return -1;
+  if(argptr(1, (void*)&arg, sizeof(arg)) < 0) return -1;
+  if(argptr(2, (void*)&stack, sizeof(stack)) < 0) return -1;
+
+  return clone(fcn, arg, stack);
+}
+int
+sys_join(void){
+  return join();
+}
+int sys_initlock_t(void){
+  struct ticketlock *lk;
+  if(argptr(0,(char**)&lk,sizeof(*lk))<0)
+    return -1;
+  initlock_t(lk);
+  return 0;
+}
+int
+sys_acquire_t(void)
+{
+  struct ticketlock *lk;
+  if (argptr(0, (void*)&lk, sizeof(*lk)) < 0)
+    return -1;
+  acquire_t(lk);
+  return 0;
+}
+
+int
+sys_release_t(void)
+{
+  struct ticketlock *lk;
+  if (argptr(0, (void*)&lk, sizeof(*lk)) < 0)
+    return -1;
+  release_t(lk);
+  return 0;
+}
+

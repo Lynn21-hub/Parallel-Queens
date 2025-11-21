@@ -21,3 +21,8 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_getprocs  22
+#define SYS_clone 23
+#define SYS_join 24
+#define SYS_initlock_t 25
+#define SYS_acquire_t 26
+#define SYS_release_t 27

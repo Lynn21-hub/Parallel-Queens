@@ -15,7 +15,7 @@ extern int ncpu;
 
 //PAGEBREAK: 17
 // Saved registers for kernel context switches.
-// Don't need to save all the segment registers (%cs, etc),
+// Don't need to save all the segment registers 
 // because they are constant across kernel contexts.
 // Don't need to save %eax, %ecx, %edx, because the
 // x86 convention is that the caller has saved them.
@@ -49,6 +49,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int qlevel;                  // current queue level (0 = highest)
+  int ticks_used;              // ticks used in current timeslice
+  int wait_ticks;              // how long this process has waited RUNNABLE
+
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -56,3 +60,4 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+

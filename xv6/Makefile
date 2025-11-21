@@ -185,6 +185,11 @@ UPROGS=\
 	_getprocs\
 	_tree\
 	_diff\
+	_clonetest\
+	_jointest\
+	_locktest\
+	_mlfqtest\
+
 	_search \
     _find \
     _split
@@ -259,6 +264,7 @@ EXTRA=\
 	printf.c umalloc.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
+	clonetest.c\
 
 dist:
 	rm -rf dist

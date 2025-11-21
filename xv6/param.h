@@ -11,4 +11,9 @@
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
+#define MAX_QLEVEL 2
+#define Q0_QUANTUM 1
+#define Q1_QUANTUM 2
+#define Q2_QUANTUM 4
+#define AGING_THRESHOLD 10
 

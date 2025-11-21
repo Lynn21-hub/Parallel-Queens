@@ -9,6 +9,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct ticketlock;
 
 // bio.c
 void            binit(void);
@@ -104,9 +105,11 @@ int             pipewrite(struct pipe*, char*, int);
 //PAGEBREAK: 16
 // proc.c
 int             cpuid(void);
+int             clone(void (*fcn)(void*), void *arg, void *stack);
 void            exit(void);
 int             fork(void);
 int             growproc(int);
+int             join(void);
 int             kill(int);
 struct cpu*     mycpu(void);
 struct proc*    myproc();
@@ -120,7 +123,8 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-int             kgetprocs(void);   // kernel helper that prints the proctable
+int             kgetprocs(void);   // kernel helper//  that prints the proctable
+
 
 // swtch.S
 void            swtch(struct context**, struct context*);
