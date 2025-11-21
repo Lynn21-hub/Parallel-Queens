@@ -188,6 +188,7 @@ UPROGS=\
 	_clonetest\
 	_jointest\
 	_locktest\
+	_mlfqtest\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

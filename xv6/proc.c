@@ -90,6 +90,13 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
 
+    // scheduling fields
+  p->qlevel = 0;
+  p->ticks_used = 0;
+  p->wait_ticks = 0;
+
+
+
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -200,6 +207,9 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+  np->qlevel = 0;   
+  np->ticks_used = 0;
+  np->wait_ticks = 0;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -331,28 +341,57 @@ scheduler(void)
     // Enable interrupts on this processor.
     sti();
 
-    // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
+    // --------- Aging: increase wait time and possibly promote ---------
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state == RUNNABLE){
+        p->wait_ticks++;
+
+        if(p->wait_ticks >= AGING_THRESHOLD && p->qlevel > 0){
+           cprintf("[AGING] PID %d promoted q%d → q%d\n", p->pid, p->qlevel, p->qlevel - 1);
+          p->qlevel--;           // promote to higher priority queue
+          p->wait_ticks = 0;
+        }
+      }
+    }
+
+    // --------- Choose RUNNABLE process with smallest qlevel ----------
+    struct proc *chosen = 0;
+    int best_q = 1000;
+
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
+      if(p->qlevel < best_q){
+        best_q = p->qlevel;
+        chosen = p;
+      }
+    }
+
+    if(chosen){
+       cprintf("[SCHED] Running PID %d from qlevel %d\n",
+            chosen->pid, chosen->qlevel);
+      p = chosen;
+
+      // Switch to chosen process
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
+
+      // reset used ticks and waiting time
+      p->ticks_used = 0;
+      p->wait_ticks = 0;
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
 
       // Process is done running for now.
-      // It should have changed its p->state before coming back.
       c->proc = 0;
     }
-    release(&ptable.lock);
 
+    release(&ptable.lock);
   }
 }
 
