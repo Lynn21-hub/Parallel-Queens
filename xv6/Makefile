@@ -190,6 +190,9 @@ UPROGS=\
 	_locktest\
 	_mlfqtest\
 
+	_search \
+    _find \
+    _split
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
 
